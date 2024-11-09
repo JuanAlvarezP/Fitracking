@@ -2,34 +2,36 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const Register = () => {
+const Login = () => {
     const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
     const navigate = useNavigate();
 
-    const handleRegister = async (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/register/', {
+            const response = await axios.post('http://127.0.0.1:8000/api/login/', {
                 username,
-                email,
                 password,
             });
 
-            setMessage(response.data.message);
-            navigate('/login');
+            const { access, refresh } = response.data;
+            localStorage.setItem('token', access);
+            localStorage.setItem('refreshToken', refresh);
+
+            setMessage('Inicio de sesión exitoso');
+            navigate('/users');
         } catch (error) {
-            setMessage(error.response?.data?.error || 'Error al registrar usuario');
+            setMessage(error.response?.data?.error || 'Error al iniciar sesión');
             console.error(error);
         }
     };
 
     return (
         <div>
-            <h2>Registrar Usuario</h2>
-            <form onSubmit={handleRegister}>
+            <h2>Iniciar Sesión</h2>
+            <form onSubmit={handleLogin}>
                 <input
                     type="text"
                     placeholder="Nombre de usuario"
@@ -37,22 +39,16 @@ const Register = () => {
                     onChange={(e) => setUsername(e.target.value)}
                 />
                 <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                />
-                <input
                     type="password"
                     placeholder="Contraseña"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                 />
-                <button type="submit">Registrar</button>
+                <button type="submit">Iniciar Sesión</button>
             </form>
             <p>{message}</p>
         </div>
     );
 };
 
-export default Register;
+export default Login;

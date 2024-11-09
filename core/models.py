@@ -1,4 +1,17 @@
 from django.db import models
+from django.contrib.auth.models import User
+
+def crear_rutina(request):
+    # Obtener el usuario
+    usuario = User.objects.get(id=usuario_id)
+    # Crear la rutina
+    rutina = Rutina.objects.create(
+        nombre_rutina=nombre_rutina,
+        objetivo=objetivo,
+        tiempo_disponible=tiempo_disponible,
+        usuario=usuario
+    )
+
 
 class Rol(models.Model):
     nombre_rol = models.CharField(max_length=50)
@@ -29,11 +42,10 @@ class Rutina(models.Model):
     nombre_rutina = models.CharField(max_length=100)
     objetivo = models.CharField(max_length=100)
     tiempo_disponible = models.IntegerField()
-    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE)
-    ejercicios = models.ManyToManyField(Ejercicio)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)  # Relación con el modelo 'User'
 
     def __str__(self):
-        return str(self.nombre_rutina)  # Convertir a str explícitamente
+        return self.nombre_rutina
 
 class HistorialProgreso(models.Model):
     rutina = models.ForeignKey(Rutina, on_delete=models.CASCADE)
