@@ -10,14 +10,15 @@ from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 
-
-
 @api_view(['POST'])
 def register_user(request):
     try:
         username = request.data.get('username')
         email = request.data.get('email')
         password = request.data.get('password')
+
+        if not username or not email or not password:
+            return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(username=username).exists():
             return Response({'error': 'El nombre de usuario ya existe'}, status=status.HTTP_400_BAD_REQUEST)
@@ -30,38 +31,50 @@ def register_user(request):
         user.save()
 
         return Response({'message': 'Usuario registrado exitosamente'}, status=status.HTTP_201_CREATED)
+
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def login_user(request):
-    try:
-        username = request.data.get('username')
-        password = request.data.get('password')
+    username = request.data.get('username')
+    password = request.data.get('password')
 
-        user = authenticate(username=username, password=password)
-        if user is None:
-            return Response({'error': 'Credenciales incorrectas'}, status=status.HTTP_401_UNAUTHORIZED)
-
+    user = authenticate(username=username, password=password)
+    if user is not None:
         refresh = RefreshToken.for_user(user)
         return Response({
-            'refresh': str(refresh),
             'access': str(refresh.access_token),
-            'user_id': user.id,
-            'username': user.username
+            'refresh': str(refresh),
+            'is_staff': user.is_staff,
         }, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_info(request):
+    user = request.user
+    return Response({
+        'username': user.username,
+        'email': user.email,
+        'is_staff': user.is_staff,
+    })
+    
+    
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def crear_usuario(request):
     try:
-        print("Solicitud autenticada. Usuario:", request.user)
+        # Verificar si el usuario autenticado es administrador
+        if not request.user.is_staff:
+            return Response({'error': 'No tienes permisos para crear usuarios'}, status=status.HTTP_403_FORBIDDEN)
+
         username = request.data.get('username')
         email = request.data.get('email')
         password = request.data.get('password')
+        is_staff = request.data.get('is_staff', False)
 
         if not username or not email or not password:
             return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
@@ -72,11 +85,14 @@ def crear_usuario(request):
         usuario = User.objects.create(
             username=username,
             email=email,
-            password=make_password(password)
+            password=make_password(password),
+            is_staff=is_staff
         )
         return Response({'message': 'Usuario creado exitosamente'}, status=status.HTTP_201_CREATED)
     except Exception as e:
+        print("Error al crear usuario:", str(e))
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     
 # Listar usuarios
 @api_view(['GET'])
@@ -92,10 +108,9 @@ def editar_usuario(request, id):
     usuario = get_object_or_404(User, id=id)
     usuario.username = request.data.get('username', usuario.username)
     usuario.email = request.data.get('email', usuario.email)
-
     if 'password' in request.data:
         usuario.set_password(request.data['password'])
-
+    usuario.is_staff = request.data.get('is_staff', usuario.is_staff)
     usuario.save()
     return Response({'message': 'Usuario actualizado exitosamente'})
 

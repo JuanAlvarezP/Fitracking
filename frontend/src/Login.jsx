@@ -15,19 +15,22 @@ const Login = () => {
                 username,
                 password,
             });
-
-            const { access, refresh } = response.data;
-            localStorage.setItem('token', access);
+    
+            const { access, refresh, is_staff } = response.data;
+    
+            // Guardar tokens y rol del usuario
+            localStorage.setItem('accessToken', access);
             localStorage.setItem('refreshToken', refresh);
-
+            localStorage.setItem('is_staff', is_staff);
+    
             setMessage('Inicio de sesión exitoso');
             navigate('/users');
         } catch (error) {
-            setMessage(error.response?.data?.error || 'Error al iniciar sesión');
+            setMessage('Error: Credenciales inválidas');
             console.error(error);
         }
     };
-
+    
     return (
         <div>
             <h2>Iniciar Sesión</h2>

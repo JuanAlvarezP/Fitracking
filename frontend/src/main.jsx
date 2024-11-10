@@ -11,7 +11,7 @@ import EditExercise from './EditExercise';
 import ListRoutines from './ListRoutines';
 import CreateRoutine from './CreateRoutine';
 import EditRoutine from './EditRoutine';
-
+import ProtectedLayout from './ProtectedLayout';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
@@ -20,14 +20,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 <Route path="/" element={<App />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login />} />
-                <Route path="/users" element={<UserManagement />} />
-                <Route path="/ejercicios" element={<ListExercises />} />
-                <Route path="/create-exercise" element={<CreateExercise />} />
-                <Route path="/edit-exercise/:id" element={<EditExercise />} />
-                <Route path="/rutinas" element={<ListRoutines />} />
-                <Route path="/create-routine" element={<CreateRoutine />} />
-                <Route path="/edit-routine/:id" element={<EditRoutine />} />
 
+                {/* Rutas protegidas con Navbar */}
+                <Route element={<ProtectedLayout />}>
+                    <Route path="/users" element={<UserManagement />} />
+                    <Route path="/ejercicios" element={<ListExercises />} />
+                    <Route path="/create-exercise" element={<CreateExercise />} />
+                    <Route path="/edit-exercise/:id" element={<EditExercise />} />
+                    <Route path="/rutinas" element={<ListRoutines />} />
+                    <Route path="/create-routine" element={<CreateRoutine />} />
+                    <Route path="/edit-routine/:id" element={<EditRoutine />} />
+                </Route>
             </Routes>
         </Router>
     </React.StrictMode>
