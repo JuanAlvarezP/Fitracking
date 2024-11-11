@@ -1,2 +1,1 @@
-release: python manage.py migrate
-web: gunicorn fitracking_project.wsgi
+web: python3 manage.py runserver 0.0.0.0:$PORT
