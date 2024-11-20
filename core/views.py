@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Ejercicio, Rutina, Usuario, Rol
+from .models import Ejercicio, Rutina, User, Rol, HistorialProgreso
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
@@ -225,3 +225,56 @@ def eliminar_rutina(request, id):
     rutina = get_object_or_404(Rutina, id=id)
     rutina.delete()
     return Response({'message': 'Rutina eliminada exitosamente'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def registrar_progreso(request):
+    try:
+        usuario = request.user
+        rutina_id = request.data.get('rutina_id')
+        ejercicio_id = request.data.get('ejercicio_id')
+        repeticiones = request.data.get('repeticiones')
+        tiempo = request.data.get('tiempo')
+        peso_usado = request.data.get('peso_usado')
+
+        if not all([rutina_id, ejercicio_id, repeticiones, tiempo, peso_usado]):
+            return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
+
+        rutina = Rutina.objects.get(id=rutina_id, usuario=usuario)
+        ejercicio = Ejercicio.objects.get(id=ejercicio_id)
+
+        progreso = HistorialProgreso.objects.create(
+            rutina=rutina,
+            ejercicio=ejercicio,
+            repeticiones=repeticiones,
+            tiempo=tiempo,
+            peso_usado=peso_usado
+        )
+        return Response({'message': 'Progreso registrado exitosamente'}, status=status.HTTP_201_CREATED)
+
+    except Rutina.DoesNotExist:
+        return Response({'error': 'Rutina no encontrada o no pertenece al usuario'}, status=status.HTTP_404_NOT_FOUND)
+    except Ejercicio.DoesNotExist:
+        return Response({'error': 'Ejercicio no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def listar_progreso_usuario(request, usuario_id):
+    try:
+        usuario = User.objects.get(id=usuario_id)
+        if usuario != request.user:
+            return Response({'error': 'No tienes permiso para ver este progreso'}, status=status.HTTP_403_FORBIDDEN)
+
+        progreso = HistorialProgreso.objects.filter(rutina__usuario=usuario).values(
+            'id', 'rutina__nombre_rutina', 'ejercicio__nombre_ejercicio', 'repeticiones', 'tiempo', 'peso_usado', 'fecha'
+        )
+        return Response(list(progreso), status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

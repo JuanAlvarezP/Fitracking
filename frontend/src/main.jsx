@@ -12,6 +12,9 @@ import ListRoutines from './ListRoutines';
 import CreateRoutine from './CreateRoutine';
 import EditRoutine from './EditRoutine';
 import ProtectedLayout from './ProtectedLayout';
+import ProgressRecorder from './ProgressRecorder';
+import ProgressViewer from './ProgressViewer';
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
@@ -30,6 +33,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     <Route path="/rutinas" element={<ListRoutines />} />
                     <Route path="/create-routine" element={<CreateRoutine />} />
                     <Route path="/edit-routine/:id" element={<EditRoutine />} />
+                    <Route path="/record-progress" element={<ProgressRecorder />} />
+                    <Route path="/view-progress" element={<ProgressViewer />} />
                 </Route>
             </Routes>
         </Router>
