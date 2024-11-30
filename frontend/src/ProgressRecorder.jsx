@@ -1,14 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const ProgressRecorder = () => {
+    const [rutinas, setRutinas] = useState([]);
+    const [ejercicios, setEjercicios] = useState([]);
     const [rutina_id, setRutinaId] = useState('');
     const [ejercicio_id, setEjercicioId] = useState('');
     const [repeticiones, setRepeticiones] = useState('');
-    const [tiempoEnMinutos, setTiempoEnMinutos] = useState('');
+    const [tiempoEnMinutos, setTiempoEnMinutos] = useState(''); // Tiempo en minutos
     const [peso_usado, setPesoUsado] = useState('');
-    const [fecha, setFecha] = useState(''); // Nuevo campo de fecha
+    const [fecha, setFecha] = useState(''); // Nuevo campo para la fecha
     const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        // Obtener la lista de rutinas y ejercicios
+        const fetchData = async () => {
+            try {
+                const token = localStorage.getItem('accessToken');
+                const [rutinasResponse, ejerciciosResponse] = await Promise.all([
+                    axios.get('http://127.0.0.1:8000/api/rutinas/', {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                    axios.get('http://127.0.0.1:8000/api/ejercicios/', {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                ]);
+
+                setRutinas(rutinasResponse.data);
+                setEjercicios(ejerciciosResponse.data);
+            } catch (error) {
+                console.error('Error al obtener rutinas o ejercicios:', error);
+                setMessage('Error al cargar rutinas y ejercicios.');
+            }
+        };
+
+        fetchData();
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,13 +50,13 @@ const ProgressRecorder = () => {
             rutina_id,
             ejercicio_id,
             repeticiones,
-            tiempo: tiempoEnMinutos,
+            tiempo: tiempoEnMinutos, // Enviar tiempo en minutos
             peso_usado,
-            fecha: fecha || undefined, // Enviar fecha solo si se proporciona
+            fecha, // Incluir la fecha
         };
 
         try {
-            const response = await axios.post(
+            await axios.post(
                 'http://127.0.0.1:8000/api/progreso/registrar/',
                 data,
                 {
@@ -38,7 +65,7 @@ const ProgressRecorder = () => {
             );
             setMessage('Progreso registrado exitosamente.');
         } catch (error) {
-            console.error('Error al registrar el progreso:', error.response?.data || error.message);
+            console.error('Error al registrar el progreso:', error);
             setMessage('Hubo un problema al registrar el progreso.');
         }
     };
@@ -47,6 +74,19 @@ const ProgressRecorder = () => {
         <div>
             <h2>Registrar Progreso</h2>
             {message && <p>{message}</p>}
+
+            <div>
+                <h3>Rutinas Disponibles</h3>
+                {rutinas.map((rutina) => (
+                    <p key={rutina.id}>{`${rutina.id}: ${rutina.nombre_rutina}`}</p>
+                ))}
+
+                <h3>Ejercicios Disponibles</h3>
+                {ejercicios.map((ejercicio) => (
+                    <p key={ejercicio.id}>{`${ejercicio.id}: ${ejercicio.nombre_ejercicio}`}</p>
+                ))}
+            </div>
+
             <form onSubmit={handleSubmit}>
                 <div>
                     <label>Rutina ID:</label>
@@ -96,11 +136,12 @@ const ProgressRecorder = () => {
                     />
                 </div>
                 <div>
-                    <label>Fecha (opcional):</label>
+                    <label>Fecha:</label>
                     <input
                         type="date"
                         value={fecha}
                         onChange={(e) => setFecha(e.target.value)}
+                        required
                     />
                 </div>
                 <button type="submit">Registrar Progreso</button>

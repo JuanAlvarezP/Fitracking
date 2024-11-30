@@ -15,7 +15,7 @@ import ProtectedLayout from './ProtectedLayout';
 import ProgressRecorder from './ProgressRecorder';
 import ProgressViewer from './ProgressViewer';
 import Recomendaciones from './Recomendaciones';
-
+import ReportDashboard from './ReportDashboard'; // Importar el nuevo componente
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
@@ -24,8 +24,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 <Route path="/" element={<App />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/login" element={<Login />} />
-
-                {/* Rutas protegidas con Navbar */}
+                
+                {/* Rutas protegidas */}
                 <Route element={<ProtectedLayout />}>
                     <Route path="/users" element={<UserManagement />} />
                     <Route path="/ejercicios" element={<ListExercises />} />
@@ -37,6 +37,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     <Route path="/record-progress" element={<ProgressRecorder />} />
                     <Route path="/view-progress" element={<ProgressViewer />} />
                     <Route path="/recomendaciones" element={<Recomendaciones />} />
+                    <Route path="/reporte" element={<ReportDashboard />} /> {/* Nueva ruta */}
                 </Route>
             </Routes>
         </Router>

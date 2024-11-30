@@ -13,6 +13,8 @@ from datetime import timedelta, datetime
 from django.utils.timezone import now
 from django.core.validators import EmailValidator
 from django.core.exceptions import ValidationError
+from django.db.models import Sum, F,Value, FloatField, IntegerField
+from django.db.models.functions import Coalesce
 
 
 
@@ -308,6 +310,8 @@ def generar_recomendaciones_view(request):
         usuario = request.user  # Usuario autenticado de Django
         progresos = HistorialProgreso.objects.filter(rutina__usuario=usuario).order_by('fecha')
         recomendaciones = []
+        
+        
         ejercicios = {}
 
         # Agrupar por ejercicio
@@ -341,7 +345,7 @@ def generar_recomendaciones_view(request):
                     f"Pareces estancado en {ejercicio}. Prueba una variación para romper la rutina."
                 )
 
-        # Guardar recomendaciones en la base de datos
+        # Guardar  en la base de datos
         for recomendacion_texto in recomendaciones:
             Recomendacion.objects.create(usuario=usuario, recomendacion_texto=recomendacion_texto)
 
@@ -358,3 +362,34 @@ def listar_recomendaciones(request):
     usuario = request.user
     recomendaciones = Recomendacion.objects.filter(usuario__id=usuario.id).values('recomendacion_texto', 'fecha')
     return Response(list(recomendaciones))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def reporte_progreso(request):
+    try:
+        fecha_inicio = request.query_params.get('fecha_inicio')
+        fecha_fin = request.query_params.get('fecha_fin')
+
+        if not fecha_inicio or not fecha_fin:
+            return Response({'error': 'Debe proporcionar fecha_inicio y fecha_fin'}, status=400)
+
+        progresos = (
+            HistorialProgreso.objects.filter(fecha__range=[fecha_inicio, fecha_fin])
+            .values('ejercicio__nombre_ejercicio')
+            .annotate(
+                total_repeticiones=Coalesce(Sum('repeticiones', output_field=IntegerField()), Value(0, output_field=IntegerField())),
+                total_tiempo=Coalesce(Sum('tiempo', output_field=FloatField()), Value(0, output_field=FloatField())),
+                total_peso=Coalesce(Sum('peso_usado', output_field=FloatField()), Value(0, output_field=FloatField())),
+                usuarios=F('rutina__usuario__username')
+            )
+            .order_by('-total_repeticiones')
+        )
+
+        if not progresos.exists():
+            return Response({'message': 'No hay datos disponibles para este rango de fechas.'}, status=200)
+
+        return Response(list(progresos), status=200)
+    except Exception as e:
+        print(f"Error en reporte_progreso: {str(e)}")
+        return Response({'error': str(e)}, status=500)

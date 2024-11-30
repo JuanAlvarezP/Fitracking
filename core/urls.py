@@ -3,7 +3,7 @@ from .views import (register_user, login_user, user_info, crear_usuario, listar_
                     editar_usuario, eliminar_usuario, listar_ejercicios, crear_ejercicio,
                     editar_ejercicio, eliminar_ejercicio, listar_rutinas, crear_rutina,
                     editar_rutina, eliminar_rutina, registrar_progreso, listar_progreso_usuario,
-                    generar_recomendaciones_view, listar_recomendaciones)
+                    generar_recomendaciones_view, listar_recomendaciones, reporte_progreso)
 
 urlpatterns = [
     path("register/", register_user, name="register_user"),
@@ -25,4 +25,5 @@ urlpatterns = [
     path('progreso/listar/', listar_progreso_usuario, name='listar_progreso_usuario'),
     path("recomendaciones/generar/", generar_recomendaciones_view, name="generar_recomendaciones"),
     path("recomendaciones/", listar_recomendaciones, name="listar_recomendaciones"),
+    path('reporte-progreso/', reporte_progreso, name='reporte_progreso'),
 ]
