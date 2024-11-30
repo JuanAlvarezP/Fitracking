@@ -5,33 +5,33 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Ejercicio, Rutina, User, Rol, HistorialProgreso, Recomendacion, Usuario
+from .models import Ejercicio, Rutina, User, Rol, HistorialProgreso, Recomendacion
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from datetime import timedelta, datetime
 from django.utils.timezone import now
-from django.core.validators import EmailValidator
+from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, F,Value, FloatField, IntegerField
 from django.db.models.functions import Coalesce
 
 
-
 @api_view(['POST'])
 def register_user(request):
     try:
+        # Obtener datos del request
         username = request.data.get('username')
         email = request.data.get('email')
         password = request.data.get('password')
 
+        # Validar que todos los campos estén presentes
         if not username or not email or not password:
             return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validar el formato del correo electrónico
-        email_validator = EmailValidator()
         try:
-            email_validator(email)
+            validate_email(email)
         except ValidationError:
             return Response({'error': 'El correo electrónico tiene un formato inválido'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -43,20 +43,24 @@ def register_user(request):
         if User.objects.filter(email=email).exists():
             return Response({'error': 'El correo ya está registrado'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Crear el usuario si todo es válido
         user = User.objects.create(
             username=username,
             email=email,
             password=make_password(password)
         )
-        user.save()
 
         return Response({'message': 'Usuario registrado exitosamente'}, status=status.HTTP_201_CREATED)
 
+    except ValidationError as ve:
+        print(f"Error de validación: {ve}")
+        return Response({'error': 'El correo electrónico tiene un formato inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
     except Exception as e:
-        print(f"Error en register_user: {e}")  # Log de depuración
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
+        print(f"Error inesperado: {e}")  # Log de depuración
+        return Response({'error': 'Ocurrió un error al registrar el usuario'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
 @api_view(['POST'])
 def login_user(request):
     username = request.data.get('username')
@@ -170,18 +174,41 @@ def listar_ejercicios(request):
     return Response(list(ejercicios))
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def crear_ejercicio(request):
     nombre = request.data.get('nombre_ejercicio')
     tipo = request.data.get('tipo')
     dificultad = request.data.get('dificultad')
     descripcion = request.data.get('descripcion')
-    ejercicio = Ejercicio.objects.create(
-        nombre_ejercicio=nombre,
-        tipo=tipo,
-        dificultad=dificultad,
-        descripcion=descripcion
-    )
-    return Response({'message': 'Ejercicio creado exitosamente'}, status=status.HTTP_201_CREATED)
+
+    # Lista de valores válidos para la dificultad
+    DIFICULTADES_PERMITIDAS = ['Facil', 'Medio', 'Dificil']
+
+    try:
+        # Validar campos obligatorios
+        if not all([nombre, tipo, dificultad]):
+            return Response({'error': 'Los campos nombre, tipo y dificultad son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validar que el nombre del ejercicio sea único
+        if Ejercicio.objects.filter(nombre_ejercicio=nombre).exists():
+            return Response({'error': 'El nombre del ejercicio ya existe'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validar dificultad
+        if dificultad not in DIFICULTADES_PERMITIDAS:
+            return Response({'error': f'La dificultad debe ser una de las siguientes: {", ".join(DIFICULTADES_PERMITIDAS)}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Crear el ejercicio
+        ejercicio = Ejercicio.objects.create(
+            nombre_ejercicio=nombre,
+            tipo=tipo,
+            dificultad=dificultad,
+            descripcion=descripcion
+        )
+        return Response({'message': 'Ejercicio creado exitosamente'}, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({'error': f'Error al crear el ejercicio: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['PUT'])
 def editar_ejercicio(request, id):
@@ -205,6 +232,7 @@ def listar_rutinas(request):
     return Response(list(rutinas))
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def crear_rutina(request):
     nombre_rutina = request.data.get('nombre_rutina')
     objetivo = request.data.get('objetivo')
@@ -212,7 +240,26 @@ def crear_rutina(request):
     usuario_id = request.data.get('usuario_id')
 
     try:
-        usuario = User.objects.get(id=usuario_id)
+        # Validar campos obligatorios
+        if not all([nombre_rutina, objetivo, tiempo_disponible, usuario_id]):
+            return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validar tiempo disponible
+        try:
+            tiempo_disponible = int(tiempo_disponible)
+            if tiempo_disponible <= 0:
+                return Response({'error': 'El tiempo disponible debe ser un número positivo'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({'error': 'El tiempo disponible debe ser un número válido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validar usuario
+        usuario = get_object_or_404(User, id=usuario_id)
+
+        # Verificar que el nombre de la rutina sea único para el usuario
+        if Rutina.objects.filter(nombre_rutina=nombre_rutina, usuario=usuario).exists():
+            return Response({'error': 'El usuario ya tiene una rutina con este nombre'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Crear la rutina
         rutina = Rutina.objects.create(
             nombre_rutina=nombre_rutina,
             objetivo=objetivo,
@@ -220,9 +267,11 @@ def crear_rutina(request):
             usuario=usuario
         )
         return Response({'message': 'Rutina creada exitosamente'}, status=status.HTTP_201_CREATED)
-    except User.DoesNotExist:
-        return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
 
+    except Exception as e:
+        return Response({'error': f'Error al crear la rutina: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    
 @api_view(['PUT'])
 def editar_rutina(request, id):
     rutina = get_object_or_404(Rutina, id=id)

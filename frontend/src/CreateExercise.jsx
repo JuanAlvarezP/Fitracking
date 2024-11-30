@@ -10,13 +10,32 @@ const CreateExercise = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Obtén el token de acceso desde el localStorage
+        const token = localStorage.getItem('accessToken');
+
+        if (!token) {
+            setMessage('No estás autenticado. Por favor, inicia sesión.');
+            return;
+        }
+
         try {
-            await axios.post('http://127.0.0.1:8000/api/ejercicios/crear/', {
-                nombre_ejercicio: nombre,
-                tipo,
-                dificultad,
-                descripcion,
-            });
+            // Enviar solicitud POST con los datos y el token de autorización
+            const response = await axios.post(
+                'http://127.0.0.1:8000/api/ejercicios/crear/', 
+                {
+                    nombre_ejercicio: nombre,
+                    tipo,
+                    dificultad,
+                    descripcion,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`, // Incluye el token en los headers
+                    },
+                }
+            );
+
             setMessage('Ejercicio creado exitosamente');
             setNombre('');
             setTipo('');
@@ -24,7 +43,7 @@ const CreateExercise = () => {
             setDescripcion('');
         } catch (error) {
             setMessage('Error al crear el ejercicio');
-            console.error('Error:', error);
+            console.error('Error:', error.response?.data || error);
         }
     };
 
@@ -32,10 +51,26 @@ const CreateExercise = () => {
         <div>
             <h2>Crear Ejercicio</h2>
             <form onSubmit={handleSubmit}>
-                <input placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-                <input placeholder="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} />
-                <input placeholder="Dificultad" value={dificultad} onChange={(e) => setDificultad(e.target.value)} />
-                <textarea placeholder="Descripción" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+                <input 
+                    placeholder="Nombre" 
+                    value={nombre} 
+                    onChange={(e) => setNombre(e.target.value)} 
+                />
+                <input 
+                    placeholder="Tipo" 
+                    value={tipo} 
+                    onChange={(e) => setTipo(e.target.value)} 
+                />
+                <input 
+                    placeholder="Dificultad" 
+                    value={dificultad} 
+                    onChange={(e) => setDificultad(e.target.value)} 
+                />
+                <textarea 
+                    placeholder="Descripción" 
+                    value={descripcion} 
+                    onChange={(e) => setDescripcion(e.target.value)} 
+                />
                 <button type="submit">Crear</button>
             </form>
             <p>{message}</p>
