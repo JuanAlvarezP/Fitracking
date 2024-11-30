@@ -9,8 +9,19 @@ const CreateUser = () => {
     const [message, setMessage] = useState('');
     const navigate = useNavigate();
 
+    const validateEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+    
     const handleRegister = async (e) => {
         e.preventDefault();
+    
+        if (!validateEmail(email)) {
+            setMessage('Por favor, ingresa un correo electrónico válido.');
+            return;
+        }
+    
         try {
             const response = await axios.post('http://127.0.0.1:8000/api/register/', {
                 username,
@@ -18,12 +29,14 @@ const CreateUser = () => {
                 email,
             });
             setMessage(response.data.message);
-            // Redirigir a la página de gestión de usuarios después de registrar
             navigate('/users');
         } catch (error) {
             setMessage(error.response?.data?.error || 'Error al registrar usuario');
         }
     };
+    
+
+    
 
     return (
         <div>

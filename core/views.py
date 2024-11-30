@@ -5,10 +5,16 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from .models import Ejercicio, Rutina, User, Rol, HistorialProgreso
+from .models import Ejercicio, Rutina, User, Rol, HistorialProgreso, Recomendacion, Usuario
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from datetime import timedelta, datetime
+from django.utils.timezone import now
+from django.core.validators import EmailValidator
+from django.core.exceptions import ValidationError
+
+
 
 @api_view(['POST'])
 def register_user(request):
@@ -20,8 +26,20 @@ def register_user(request):
         if not username or not email or not password:
             return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validar el formato del correo electrónico
+        email_validator = EmailValidator()
+        try:
+            email_validator(email)
+        except ValidationError:
+            return Response({'error': 'El correo electrónico tiene un formato inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar si el nombre de usuario ya existe
         if User.objects.filter(username=username).exists():
             return Response({'error': 'El nombre de usuario ya existe'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar si el correo ya está registrado
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'El correo ya está registrado'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.create(
             username=username,
@@ -33,7 +51,9 @@ def register_user(request):
         return Response({'message': 'Usuario registrado exitosamente'}, status=status.HTTP_201_CREATED)
 
     except Exception as e:
+        print(f"Error en register_user: {e}")  # Log de depuración
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['POST'])
 def login_user(request):
@@ -93,13 +113,18 @@ def crear_usuario(request):
         print("Error al crear usuario:", str(e))
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    
 # Listar usuarios
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def listar_usuarios(request):
+    # Verificar si el usuario autenticado es administrador
+    if not request.user.is_staff:
+        return Response({'error': 'No tienes permiso para ver esta página.'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Si es administrador, listar los usuarios
     usuarios = User.objects.all().values('id', 'username', 'email', 'is_staff')
     return Response(list(usuarios))
+
 
 # Editar usuario
 @api_view(['PUT'])
@@ -118,31 +143,23 @@ def editar_usuario(request, id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def eliminar_usuario(request, id):
-    usuario = get_object_or_404(User, id=id)
-    usuario.delete()
-    return Response({'message': 'Usuario eliminado exitosamente'})
+    # Verificar si el usuario autenticado es administrador
+    if not request.user.is_staff:
+        return Response({'error': 'No tienes permisos para eliminar usuarios.'}, status=status.HTTP_403_FORBIDDEN)
 
-@api_view(['GET', 'POST'])
-def ejercicios_list(request):
-    if request.method == 'GET':
-        ejercicios = Ejercicio.objects.all().values()
-        return Response(list(ejercicios))
-    elif request.method == 'POST':
-        try:
-            nombre_ejercicio = request.data.get('nombre_ejercicio')
-            tipo = request.data.get('tipo')
-            dificultad = request.data.get('dificultad')
-            descripcion = request.data.get('descripcion')
+    try:
+        # Verificar que el usuario a eliminar exista
+        usuario = get_object_or_404(User, id=id)
+        
+        # Evitar que el administrador se elimine a sí mismo
+        if usuario == request.user:
+            return Response({'error': 'No puedes eliminar tu propia cuenta.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            ejercicio = Ejercicio.objects.create(
-                nombre_ejercicio=nombre_ejercicio,
-                tipo=tipo,
-                dificultad=dificultad,
-                descripcion=descripcion
-            )
-            return Response({'message': 'Ejercicio creado exitosamente'}, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        usuario.delete()
+        return Response({'message': 'Usuario eliminado exitosamente'}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -235,46 +252,109 @@ def registrar_progreso(request):
         rutina_id = request.data.get('rutina_id')
         ejercicio_id = request.data.get('ejercicio_id')
         repeticiones = request.data.get('repeticiones')
-        tiempo = request.data.get('tiempo')
+        tiempo = request.data.get('tiempo')  # Tiempo en minutos
         peso_usado = request.data.get('peso_usado')
+        fecha = request.data.get('fecha', datetime.now().date())  # Fecha opcional
 
+        # Validar campos obligatorios
         if not all([rutina_id, ejercicio_id, repeticiones, tiempo, peso_usado]):
             return Response({'error': 'Todos los campos son obligatorios'}, status=status.HTTP_400_BAD_REQUEST)
 
-        rutina = Rutina.objects.get(id=rutina_id, usuario=usuario)
-        ejercicio = Ejercicio.objects.get(id=ejercicio_id)
+        # Validar que los datos son numéricos donde corresponde
+        try:
+            repeticiones = int(repeticiones)
+            tiempo = float(tiempo)  # Convertir tiempo a minutos
+            peso_usado = float(peso_usado)
+        except ValueError:
+            return Response({'error': 'Repeticiones, tiempo y peso deben ser numéricos'}, status=status.HTTP_400_BAD_REQUEST)
 
+        rutina = get_object_or_404(Rutina, id=rutina_id, usuario=usuario)
+        ejercicio = get_object_or_404(Ejercicio, id=ejercicio_id)
+
+        # Crear el progreso con los datos proporcionados
         progreso = HistorialProgreso.objects.create(
             rutina=rutina,
             ejercicio=ejercicio,
             repeticiones=repeticiones,
-            tiempo=tiempo,
-            peso_usado=peso_usado
+            tiempo=tiempo,  # En minutos
+            peso_usado=peso_usado,
+            fecha=fecha  # Asignar la fecha proporcionada
         )
         return Response({'message': 'Progreso registrado exitosamente'}, status=status.HTTP_201_CREATED)
 
-    except Rutina.DoesNotExist:
-        return Response({'error': 'Rutina no encontrada o no pertenece al usuario'}, status=status.HTTP_404_NOT_FOUND)
-    except Ejercicio.DoesNotExist:
-        return Response({'error': 'Ejercicio no encontrado'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def listar_progreso_usuario(request, usuario_id):
+def listar_progreso_usuario(request):
     try:
-        usuario = User.objects.get(id=usuario_id)
-        if usuario != request.user:
-            return Response({'error': 'No tienes permiso para ver este progreso'}, status=status.HTTP_403_FORBIDDEN)
-
-        progreso = HistorialProgreso.objects.filter(rutina__usuario=usuario).values(
+        progreso = HistorialProgreso.objects.filter(rutina__usuario=request.user).values(
             'id', 'rutina__nombre_rutina', 'ejercicio__nombre_ejercicio', 'repeticiones', 'tiempo', 'peso_usado', 'fecha'
         )
         return Response(list(progreso), status=status.HTTP_200_OK)
 
-    except User.DoesNotExist:
-        return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generar_recomendaciones_view(request):
+    try:
+        usuario = request.user  # Usuario autenticado de Django
+        progresos = HistorialProgreso.objects.filter(rutina__usuario=usuario).order_by('fecha')
+        recomendaciones = []
+        ejercicios = {}
+
+        # Agrupar por ejercicio
+        for progreso in progresos:
+            if progreso.ejercicio.nombre_ejercicio not in ejercicios:
+                ejercicios[progreso.ejercicio.nombre_ejercicio] = []
+            ejercicios[progreso.ejercicio.nombre_ejercicio].append(progreso)
+
+        # Analizar los datos agrupados
+        for ejercicio, datos in ejercicios.items():
+            if len(datos) < 2:
+                continue
+
+            mejoras = 0
+            estancamiento = 0
+
+            for i in range(1, len(datos)):
+                anterior = datos[i - 1]
+                actual = datos[i]
+                if actual.repeticiones > anterior.repeticiones or actual.peso_usado > anterior.peso_usado:
+                    mejoras += 1
+                elif actual.repeticiones == anterior.repeticiones and actual.peso_usado == anterior.peso_usado:
+                    estancamiento += 1
+
+            if mejoras >= 2:
+                recomendaciones.append(
+                    f"Has mejorado consistentemente en {ejercicio}. Considera aumentar el peso o la dificultad."
+                )
+            elif estancamiento >= 3:
+                recomendaciones.append(
+                    f"Pareces estancado en {ejercicio}. Prueba una variación para romper la rutina."
+                )
+
+        # Guardar recomendaciones en la base de datos
+        for recomendacion_texto in recomendaciones:
+            Recomendacion.objects.create(usuario=usuario, recomendacion_texto=recomendacion_texto)
+
+        return Response({'recomendaciones': recomendaciones}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"Error al generar recomendaciones: {e}")
+        return Response({"message": "Error al generar recomendaciones."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def listar_recomendaciones(request):
+    usuario = request.user
+    recomendaciones = Recomendacion.objects.filter(usuario__id=usuario.id).values('recomendacion_texto', 'fecha')
+    return Response(list(recomendaciones))

@@ -13,6 +13,8 @@ const Navbar = ({ handleLogout }) => {
                 <li><Link to="/create-routine">Crear Rutina</Link></li>
                 <li><Link to="/record-progress">Registrar Progreso</Link></li>
                 <li><Link to="/view-progress">Ver Progreso</Link></li>
+                <li><Link to="/recomendaciones">Recomendaciones</Link></li>
+
 
                 <li>
                     <button onClick={handleLogout}>Cerrar Sesión</button>

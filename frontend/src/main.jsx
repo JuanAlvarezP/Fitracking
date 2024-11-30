@@ -14,6 +14,7 @@ import EditRoutine from './EditRoutine';
 import ProtectedLayout from './ProtectedLayout';
 import ProgressRecorder from './ProgressRecorder';
 import ProgressViewer from './ProgressViewer';
+import Recomendaciones from './Recomendaciones';
 
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -35,6 +36,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     <Route path="/edit-routine/:id" element={<EditRoutine />} />
                     <Route path="/record-progress" element={<ProgressRecorder />} />
                     <Route path="/view-progress" element={<ProgressViewer />} />
+                    <Route path="/recomendaciones" element={<Recomendaciones />} />
                 </Route>
             </Routes>
         </Router>

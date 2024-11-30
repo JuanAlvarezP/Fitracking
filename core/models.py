@@ -52,17 +52,19 @@ class HistorialProgreso(models.Model):
     ejercicio = models.ForeignKey(Ejercicio, on_delete=models.CASCADE)
     fecha = models.DateField(auto_now_add=True)
     repeticiones = models.IntegerField()
-    tiempo = models.IntegerField()  # Tiempo en segundos
+    tiempo = models.FloatField()  # En minutos
     peso_usado = models.FloatField()
 
     def __str__(self):
-        return f"{str(self.ejercicio)} - {str(self.fecha)}"  # Convertir a str explícitamente
-
+        return f"{str(self.ejercicio)} - {str(self.fecha)}"
+    
+    
 class Recomendacion(models.Model):
-    usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)  # Cambiar a User
     recomendacion_texto = models.TextField()
     fecha = models.DateField(auto_now_add=True)
 
     def __str__(self):
-        return f"Recomendación para {self.usuario.nombre} - {self.fecha}"  # pylint: disable=no-member
+        return f"Recomendación para {self.usuario.username} - {self.fecha}"
+
 
